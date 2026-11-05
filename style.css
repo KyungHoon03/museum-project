@@ -1,0 +1,97 @@
+:root{color-scheme:light;font-family:system-ui,'Malgun Gothic',sans-serif;color:#273631;background:#e8ece7;--room-label-font:clamp(12px,1.6vmin,32px);--ui-font:max(14px,1.05vw);--ui-height:max(48px,5vh);--ui-gap:max(6px,.45vw);--panel-space:max(8px,1vw)}*{box-sizing:border-box}body{margin:0}.app{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);height:100vh;height:100dvh}.stage{display:flex;flex-direction:column;min-width:0;min-height:0}.viewport{flex:1;position:relative;min-height:0;overflow:hidden}canvas{width:100%;height:100%;display:block;position:absolute;inset:0;outline:none;cursor:default}canvas:focus-visible{outline:2px solid #6c826e;outline-offset:-3px}#labels{position:absolute;inset:0;pointer-events:none}.room-label{position:absolute;transform:translate(-50%,-50%);background:#fffffff0;padding:.4em .65em;border:1px solid #cad1c4;border-radius:.35em;font-size:var(--room-label-font);white-space:nowrap;color:#364339;box-shadow:0 2px 8px #2438280c}aside{background:#f8f9f4;border-left:1px solid #d8ded1;padding:var(--panel-space);overflow:auto;display:flex;flex-direction:column;min-width:0;min-height:0;container-type:inline-size}.mode-nav{width:100%;align-self:center;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--ui-gap)}.mode-nav button{font:inherit;font-size:var(--ui-font);line-height:1.4;white-space:nowrap;text-align:center;border:1px solid #d4dcce;border-radius:5px;background:#fff;padding:max(10px,1vh) max(4px,.3vw);color:#435244;cursor:pointer;min-height:var(--ui-height)}.mode-nav button:hover{border-color:#7d947e}.mode-nav button.active{background:#3d5948;color:white;border-color:#3d5948}button:focus-visible{outline:2px solid #4a7154;outline-offset:2px}#error{position:absolute;inset:30%;background:#fff;padding:20px;color:#963a32}
+.mobile-input{overscroll-behavior:none}.mobile-input .app{height:100dvh}.mobile-input .stage{min-height:0}.mobile-input canvas{touch-action:none}.mobile-input aside{padding:var(--panel-space);padding-top:max(var(--panel-space),env(safe-area-inset-top));padding-bottom:max(var(--panel-space),env(safe-area-inset-bottom))}.mobile-input .mode-nav{width:100%;margin:0}
+.room-label{font-family:inherit;line-height:normal}
+
+/* 모든 플랫폼 공통 75:25. 좁은 패널은 내부 버튼만 세로 배치한다. */
+@container (max-width:180px){.mode-nav{grid-template-columns:minmax(0,1fr)}.mode-nav button{font-size:var(--ui-font);white-space:normal;overflow-wrap:anywhere;padding:max(10px,1vh) 2px}}
+
+.mobile-panel-toggle{display:none}
+.mobile-input .mobile-panel-toggle{display:grid;place-items:center;position:fixed;right:env(safe-area-inset-right,0px);top:50%;transform:translateY(-50%);z-index:20;width:max(48px,2.6vw);height:max(64px,5vh);padding:0;border:1px solid #b6c4b7;border-right:0;border-radius:10px 0 0 10px;background:#f8f9f4f2;color:#3d5948;font:max(32px,2vw)/1 system-ui;box-shadow:-2px 2px 8px #24382818;touch-action:manipulation;cursor:pointer}
+.mobile-input.panel-hidden .app{grid-template-columns:minmax(0,1fr)}
+.mobile-input.panel-hidden aside{display:none}
+.mobile-input:not(.panel-hidden) .mobile-panel-toggle{right:25%}
+#navigation-points{position:absolute;inset:0;pointer-events:none;z-index:5}#navigation-points[hidden]{display:none}
+
+/* 이동 화살표의 크기·간격은 화면의 짧은 변에 비례한다. */
+.direction-pad{--move-key:8vmin;--move-gap:.8vmin;position:absolute;z-index:8;left:50%;bottom:calc(3vh + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:grid;grid-template-columns:repeat(3,var(--move-key));grid-template-rows:repeat(2,var(--move-key));gap:var(--move-gap);touch-action:manipulation}.direction-pad[hidden]{display:none}.direction-pad button{width:var(--move-key);height:var(--move-key);min-width:0;min-height:0;padding:0;border:1px solid #fff9;border-radius:calc(var(--move-key) * .2);background:#284d40e8;color:white;font:700 calc(var(--move-key) * .52)/1 sans-serif;box-shadow:0 2px 8px #0003;touch-action:manipulation;cursor:pointer}.direction-pad button[data-direction=forward]{grid-column:2}.direction-pad button[data-direction=left]{grid-column:1;grid-row:2}.direction-pad button[data-direction=back]{grid-column:2;grid-row:2}.direction-pad button[data-direction=right]{grid-column:3;grid-row:2}.direction-pad button:disabled{opacity:.3;cursor:default}.direction-pad button:active:not(:disabled){background:#658f76}.direction-pad button:focus-visible{outline:3px solid #eac459;outline-offset:2px}
+
+.ground-rings{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none}.ground-rings path{fill:#ffffff18;stroke:#fffffff0;stroke-width:2.5;stroke-linejoin:round;pointer-events:none}
+
+/* 시점 전환 버튼 아래의 1인칭 미니맵. SVG가 패널 너비에 맞춰 확대된다. */
+.minimap{width:100%;margin-top:var(--panel-space);padding:0;border:0;flex:none;min-width:0}
+.minimap[hidden]{display:none}
+.minimap svg{display:block;width:100%;height:auto;overflow:hidden;background:#eef1e9;border-radius:.4em}
+.minimap-floor{fill:#dce2d8;stroke:#9da99a;stroke-width:1;vector-effect:non-scaling-stroke}
+.minimap-outdoor{fill:#c9ddb6}.minimap-wall{fill:#647668}.minimap-glass{fill:#a6cfd2}
+.minimap-view{fill:#fff477;fill-opacity:.55;stroke:none}
+.minimap-position{fill:#e33836;stroke:#fff;stroke-width:1.5;vector-effect:non-scaling-stroke}
+
+.minimap-waypoint{fill:#2879e3;stroke:#fff;stroke-width:.8;vector-effect:non-scaling-stroke}
+
+/* 평면도 에셋 선택 패널 */
+.asset-upload{width:100%;margin-top:var(--panel-space);padding:var(--panel-space);border:1px solid #d8ded1;border-radius:8px;background:#fff;flex:none}
+.asset-upload h2{margin:0 0 .4em;font-size:var(--ui-font);line-height:1.4;color:#364339}
+.asset-upload-intro{margin:0 0 .8em;color:#627064;font-size:max(12px,.85vw);line-height:1.5}
+.asset-room{border-top:1px solid #e5e9e1}
+.asset-room>summary{padding:.75em .2em;font-size:var(--ui-font);font-weight:650;color:#364339;cursor:pointer}
+.asset-entry{padding:.55em .45em .8em;border-top:1px solid #edf0ea}
+.asset-entry-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:.5em;font-size:max(12px,.85vw);line-height:1.45}
+.asset-type{flex:none;padding:.1em .4em;border-radius:4px;background:#e8eee8;color:#385542;font-size:.85em;font-weight:650}
+.asset-type-3d{background:#e8e5f1;color:#594b76}
+.asset-upload-button{width:100%;min-height:max(36px,4vh);margin-top:.45em;padding:.45em .65em;border:1px solid #3d5948;border-radius:6px;background:#3d5948;color:#fff;font-family:inherit;font-size:max(12px,.85vw);font-weight:600;line-height:1.4;cursor:pointer}
+.asset-upload-button:hover{background:#30483a}
+.asset-entry-actions{display:flex;gap:.45em}
+.asset-entry-actions .asset-upload-button{flex:1;min-width:0}
+.asset-reset-button{flex:none;min-height:max(36px,4vh);margin-top:.45em;padding:.45em .65em;border:1px solid #b8c2b5;border-radius:6px;background:#f6f7f3;color:#4c5c4d;font-family:inherit;font-size:max(12px,.85vw);font-weight:600;line-height:1.4;cursor:pointer}
+.asset-reset-button:hover:not(:disabled){border-color:#9c554d;background:#fff2ef;color:#873d35}
+.asset-reset-button:disabled{opacity:.45;cursor:default}
+.asset-upload-status{margin:.35em 0 0;color:#627064;font-size:max(12px,.8vw);line-height:1.4;overflow-wrap:anywhere}
+.asset-file-input{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.asset-file-input:focus-visible+.asset-upload-status{outline:2px solid #4a7154}
+.asset-preview{margin-top:.4em}
+.asset-preview:empty{display:none}
+.asset-preview-media{display:block;width:100%;max-height:120px;object-fit:contain;background:#eef1e9;border-radius:4px}
+.asset-model-preview{display:grid;place-items:center;width:100%;height:44px;border-radius:4px;background:linear-gradient(135deg,#ebe9f2,#f8f7fa);color:#594b76;font-weight:700}
+.asset-entry-selected{border-radius:6px;background:#edf3ee;box-shadow:inset 3px 0 #3d7650}
+.asset-model-controls{margin-top:.55em;padding:.6em;border:1px solid #e1e6de;border-radius:6px;background:#f8f9f6}
+.asset-model-hint{margin:0 0 .45em;color:#627064;font-size:max(11px,.78vw);line-height:1.4}
+.asset-scale-label{display:flex;align-items:center;gap:.5em;color:#364339;font-size:max(12px,.82vw)}
+.asset-scale-label input{flex:1;min-width:0;accent-color:#3d5948}
+.asset-scale-label output{min-width:3.2em;text-align:right;font-variant-numeric:tabular-nums}
+.asset-position-controls{display:flex;align-items:center;justify-content:space-between;gap:.5em;margin-top:.55em}
+.asset-position-hint{color:#627064;font-size:max(11px,.78vw);white-space:nowrap}
+.asset-position-pad{display:grid;grid-template-columns:repeat(3,34px);grid-template-rows:repeat(2,32px);gap:3px}
+.asset-position-pad button{min-width:34px;border:1px solid #cbd5ca;border-radius:5px;background:#fff;color:#405447;font-family:inherit;font-size:17px;font-weight:650;line-height:1;cursor:pointer}
+.asset-position-pad button:nth-child(1){grid-column:2;grid-row:1}
+.asset-position-pad button:nth-child(2){grid-column:1;grid-row:2}
+.asset-position-pad button:nth-child(3){grid-column:2;grid-row:2}
+.asset-position-pad button:nth-child(4){grid-column:3;grid-row:2}
+.asset-position-pad button:hover:not(:disabled){border-color:#7d947e;background:#f0f4ee}
+.asset-position-pad button:disabled{opacity:.45;cursor:default}
+.asset-rotation-controls{display:flex;gap:.45em;margin-top:.5em}
+.asset-rotation-controls button{flex:1;min-height:34px;border:1px solid #cbd5ca;border-radius:5px;background:#fff;color:#405447;font-family:inherit;font-size:max(12px,.82vw);font-weight:600;line-height:1.2;cursor:pointer}
+.asset-rotation-controls button:hover:not(:disabled){border-color:#7d947e;background:#f0f4ee}
+.asset-rotation-controls button:disabled{opacity:.45;cursor:default}
+#asset-markers{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}
+#asset-locations{position:absolute;inset:0;z-index:8;pointer-events:none;overflow:hidden}
+.asset-location{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:22px;height:22px;padding:0;border:2px solid #fff;border-radius:50%;background:#315b84;color:#fff;font:700 11px/1 system-ui,sans-serif;box-shadow:0 1px 5px #17231c88;pointer-events:auto;cursor:pointer;white-space:nowrap}
+.asset-location[data-room-index="1"]{background:#a44d36}
+.asset-location[data-room-index="2"]{background:#765394}
+.asset-location[data-room-index="3"]{background:#36765b}
+.asset-location[data-room-index="4"]{background:#536a8d}
+.asset-location[data-room-index="5"]{background:#96546a}
+.asset-location[data-room-index="6"]{background:#a07732}
+.asset-location[data-room-index="7"]{background:#43818a}
+.asset-location:hover,.asset-location:focus-visible{z-index:1;transform:translate(-50%,-50%) scale(1.2)}
+.asset-location[hidden]{display:none}
+.asset-marker{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;max-width:100px;padding:3px;border:1px solid #fff;border-radius:5px;background:#fffffff0;box-shadow:0 1px 5px #17231c55;color:#273631;font-family:inherit;font-size:10px;line-height:1.2;text-align:center;pointer-events:auto}
+.asset-marker[hidden]{display:none}
+.asset-marker img,.asset-marker video{display:block;width:66px;height:46px;object-fit:contain;background:#f3f4f0;border-radius:3px}
+.asset-marker span{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 탑뷰에서만 보이는 이동점. 투명 버튼 안의 파란 점이 목적지 위치를 나타낸다. */
+.plan-point{position:absolute;transform:translate(-50%,-50%);width:clamp(24px,3vmin,44px);height:clamp(24px,3vmin,44px);padding:0;border:0;background:transparent;pointer-events:auto;cursor:pointer;touch-action:manipulation;display:grid;place-items:center;border-radius:50%}
+.plan-point[hidden]{display:none}.plan-point::after{content:'';width:clamp(8px,1.1vmin,16px);height:clamp(8px,1.1vmin,16px);border:1px solid white;border-radius:50%;background:#2879e3;box-shadow:0 1px 3px #0004}
+.plan-point:hover::after,.plan-point:focus-visible::after{background:#1454b3;transform:scale(1.2)}
+.plan-point-name{position:absolute;left:calc(50% + 13px);top:50%;transform:translateY(-50%);padding:3px 6px;border:1px solid #c9d6e5;border-radius:4px;background:#fffF;color:#273d51;font:600 11px/1.3 system-ui,'Malgun Gothic',sans-serif;white-space:nowrap;box-shadow:0 1px 4px #17231c30;pointer-events:none}
+#asset-locations{display:none}
