@@ -16,7 +16,7 @@
       uniform mat4 uModel,uVP;uniform mat3 uNormal;out vec3 vN;out vec3 vWorld;out vec2 vUV;
       void main(){vN=uNormal*aNormal;vUV=aUV;vec4 world=uModel*vec4(aPos,1.);vWorld=world.xyz;gl_Position=uVP*world;}
     `,`#version 300 es
-      precision highp float;in vec3 vN;in vec3 vWorld;in vec2 vUV;uniform vec3 uColor,uEye;uniform float uAlpha;uniform int uSurface;uniform bool uFloorTexture,uUseAssetTexture;uniform sampler2D uWood,uAssetTexture;uniform vec4 uWoodBounds,uGrassBounds;uniform vec2 uWoodTile,uGrassNotch;out vec4 outColor;
+      precision highp float;in vec3 vN;in vec3 vWorld;in vec2 vUV;uniform vec3 uColor,uEye;uniform float uAlpha;uniform int uSurface;uniform bool uFloorTexture,uUseAssetTexture;uniform sampler2D uWood,uAssetTexture;uniform vec4 uWoodBounds,uGrassBounds;uniform vec2 uWoodTile,uGrassNotch,uImageFit;out vec4 outColor;
       float hash(vec3 p){p=fract(p*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
       bool within(vec4 b){return vWorld.x>=b.x&&vWorld.z>=b.y&&vWorld.x<=b.z&&vWorld.z<=b.w;}
       void main(){
@@ -48,11 +48,17 @@
           vec3 halfVector=normalize(light+normalize(uEye-vWorld));
           color+=vec3(1.,.94,.83)*.12*pow(max(dot(n,halfVector),0.),32.);
         }
-        if(uUseAssetTexture){vec4 image=texture(uAssetTexture,vUV);if(image.a<.01)discard;outColor=image;return;}
+        if(uUseAssetTexture){
+          vec2 uv=(vUV-.5)/uImageFit+.5;
+          if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))discard;
+          vec4 image=texture(uAssetTexture,uv);
+          if(image.a<.01)discard;
+          outColor=image;return;
+        }
         outColor=vec4(color,uAlpha);
       }
     `);
-    const U=D.uniforms(gl,program,['uModel','uVP','uNormal','uColor','uAlpha','uEye','uFloorTexture','uWood','uAssetTexture','uUseAssetTexture','uWoodBounds','uWoodTile','uSurface','uGrassBounds','uGrassNotch']);
+    const U=D.uniforms(gl,program,['uModel','uVP','uNormal','uColor','uAlpha','uEye','uFloorTexture','uWood','uAssetTexture','uUseAssetTexture','uImageFit','uWoodBounds','uWoodTile','uSurface','uGrassBounds','uGrassNotch']);
     const woodTexture=gl.createTexture(),woodImage=new Image();let woodReady=false;
     gl.bindTexture(gl.TEXTURE_2D,woodTexture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([180,125,60,255]));
     woodImage.onload=()=>{
@@ -72,17 +78,42 @@
     const center=[(lo[0]+hi[0])/2,.5,(lo[1]+hi[1])/2],radius=Math.hypot(hi[0]-lo[0],hi[1]-lo[1])/2;
     let selected='orbit',lastCamera=null;
     const mobileControls=MuseumMobileControls(canvas,controls);
-    const waypointControls=MuseumPointNavigation(canvas,controls,collision,model,destination=>{
+    function travel(destination, path=MuseumPathfinding.find(controls.camera().eye,destination,collision), yaw, coursePlayback=false){
       const start=lastCamera||controls.camera(),pose={yaw:controls.state.yaw,pitch:controls.state.pitch,fov:controls.state.fov};
-      const path=MuseumPathfinding.find(controls.camera().eye,destination,collision);if(!path)return;
+      if(!path)return;
       const lengths=[0];for(let i=1;i<path.length;i++)lengths.push(lengths[i-1]+Math.hypot(...path[i].map((v,k)=>v-path[i-1][k])));
-      controls.setMode('interior',destination);Object.assign(controls.state,pose);controls.clear();mobileControls.reset();
-      flight={start,end:controls.camera(),began:performance.now(),duration:Math.min(1600,Math.max(380,lengths.at(-1)*65)),path,lengths};controls.state.transitioning=true;
-    },destination=>{
+      controls.setMode('interior',destination);Object.assign(controls.state,pose);if(yaw!==undefined)Object.assign(controls.state,{yaw,pitch:0});controls.clear();mobileControls.reset();
+      flight={start,end:controls.camera(),began:performance.now(),duration:coursePlayback ? Math.max(380,lengths.at(-1)/1.8*1000) : Math.min(1600,Math.max(380,lengths.at(-1)*65)),path,lengths};controls.state.transitioning=true;
+    }
+    const waypointControls=MuseumPointNavigation(canvas,controls,collision,model,
+      destination=>travel(destination),destination=>{
       cancelFlight();controls.setMode('interior',destination);controls.clear();mobileControls.reset();lastCamera=null;
     });
+    const course=MuseumCourse(waypointControls.points,{
+      find:(from,to)=>MuseumPathfinding.find(from,to,collision),
+      enter:(eye,yaw)=>{
+        controls.setMode('interior',eye);
+        Object.assign(controls.state,{yaw,pitch:0});
+        lastCamera=null;
+        mobileControls.reset();
+      },
+      travel:(eye,path,yaw)=>travel(eye,path,yaw,true),
+      isMoving:()=>Boolean(flight),
+      hold:()=>{controls.state.transitioning=true;},
+      release:()=>{
+        if(flight){
+          const eye=lastCamera?.eye??flight.start.eye;
+          const yaw=controls.state.yaw;
+          controls.setMode('interior',eye);
+          controls.state.yaw=yaw;
+        }
+        cancelFlight();
+        controls.clear();
+        mobileControls.reset();
+      }
+    });
     function sync(){const choice=controls.state.mode==='interior'?'interior':controls.state.orthographic?'plan':'orbit';document.querySelectorAll('[data-navigation]').forEach(b=>{const active=b.dataset.navigation===choice;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});}
-    function home(){cancelFlight();lastCamera=null;const aspect=canvas.clientWidth/Math.max(1,canvas.clientHeight),fit=matchMedia('(pointer: coarse)').matches?Math.max(1,1.2/aspect):1;controls.setView({target:center,distance:radius*1.8*fit});selected='orbit';sync();}
+    function home(){course.stop();cancelFlight();lastCamera=null;const aspect=canvas.clientWidth/Math.max(1,canvas.clientHeight),fit=matchMedia('(pointer: coarse)').matches?Math.max(1,1.2/aspect):1;controls.setView({target:center,distance:radius*1.8*fit});selected='orbit';sync();}
     window.addEventListener('resize',()=>{if(matchMedia('(pointer: coarse)').matches&&selected==='orbit')home();});
     function preset(name){
       cancelFlight();
@@ -95,6 +126,7 @@
       selected=name;sync();
     }
     document.querySelectorAll('[data-navigation]').forEach(b=>b.addEventListener('click',()=>{
+      course.stop();
       cancelFlight();
       if(b.dataset.navigation==='plan')preset('top');
       else if(b.dataset.navigation==='orbit')home();
@@ -111,6 +143,10 @@
         if(!controls.state.orthographic||controls.state.mode==='interior')preset('top');
         document.querySelector(`[data-asset-id="${CSS.escape(id)}"]`)?.scrollIntoView({block:'nearest',behavior:'smooth'});
       });
+    }
+    function imageFit(image,width,height){
+      const relativeAspect=(image.naturalWidth/image.naturalHeight)/(width/height);
+      return [Math.min(1,relativeAspect),Math.min(1,1/relativeAspect)];
     }
     function showAssetError(id,message){document.dispatchEvent(new CustomEvent('museumasseterror',{detail:{id,message}}));}
     document.addEventListener('museumassetchange',async event=>{
@@ -176,7 +212,7 @@
             gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
             const previous=uploadedWallImages.get(asset.id);
             if(previous){previous.mesh.dispose();gl.deleteTexture(previous.texture);}
-            uploadedWallImages.set(asset.id,{mesh,texture});
+            uploadedWallImages.set(asset.id,{mesh,texture,fit:imageFit(image,totalLength,frame.top-frame.bottom-.09)});
             return;
           }
           const spanX=frame.b[0]-frame.a[0],spanZ=frame.b[1]-frame.a[1];
@@ -206,7 +242,7 @@
           gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
           const previous=uploadedWallImages.get(asset.id);
           if(previous){previous.mesh.dispose();gl.deleteTexture(previous.texture);}
-          uploadedWallImages.set(asset.id,{mesh,texture});
+          uploadedWallImages.set(asset.id,{mesh,texture,fit:imageFit(image,Math.hypot(topB[0]-topA[0],topB[1]-topA[1]),top-bottom)});
         };
         image.onerror=()=>{
           if(assetVersions.get(asset.id)===version&&MuseumAssetFiles.get(asset.id)===asset)
@@ -263,7 +299,7 @@
     });
     gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);home();
     function matrix(p){const m=M.create();M.translate(m,m,p.position);M.rotateY(m,m,p.yaw||0);M.scale(m,m,p.size);return m;}
-    function draw(mesh,m,color,alpha=1,textured=false,surface=0,assetTexture=null){gl.uniformMatrix4fv(U.uModel,false,m);gl.uniformMatrix3fv(U.uNormal,false,M.normalFrom(m));gl.uniform3fv(U.uColor,color);gl.uniform1f(U.uAlpha,alpha);gl.uniform1i(U.uSurface,surface);gl.uniform1i(U.uFloorTexture,textured&&woodReady?1:0);gl.uniform1i(U.uUseAssetTexture,assetTexture?1:0);if(assetTexture){gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,assetTexture);gl.uniform1i(U.uAssetTexture,1);}gl.bindVertexArray(mesh.vao);gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);}
+    function draw(mesh,m,color,alpha=1,textured=false,surface=0,assetImage=null){gl.uniformMatrix4fv(U.uModel,false,m);gl.uniformMatrix3fv(U.uNormal,false,M.normalFrom(m));gl.uniform3fv(U.uColor,color);gl.uniform1f(U.uAlpha,alpha);gl.uniform1i(U.uSurface,surface);gl.uniform1i(U.uFloorTexture,textured&&woodReady?1:0);gl.uniform1i(U.uUseAssetTexture,assetImage?1:0);if(assetImage){gl.uniform2fv(U.uImageFit,assetImage.fit);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,assetImage.texture);gl.uniform1i(U.uAssetTexture,1);}gl.bindVertexArray(mesh.vao);gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);}
     const normalize=v=>{const length=Math.hypot(...v)||1;return v.map(value=>value/length);};
     const subtract=(a,b)=>a.map((value,index)=>value-b[index]);
     const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
@@ -323,6 +359,7 @@
     }
     const surfaceStats={trimmed:result.trimmed,removedArea:result.removedArea};
     D.loop((now,dt)=>{
+      course.update(now);
       controls.update(dt);
       mobileControls.update(dt);
       const r=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2),w=Math.max(1,Math.round(r.width*dpr)),h=Math.max(1,Math.round(r.height*dpr));if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
@@ -357,7 +394,7 @@
       }
       gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
       for(const uploaded of uploadedWallImages.values()){
-        draw(uploaded.mesh,identity,[1,1,1],1,false,0,uploaded.texture);
+        draw(uploaded.mesh,identity,[1,1,1],1,false,0,uploaded);
       }
       gl.depthMask(true);gl.disable(gl.BLEND);
       for(const [id,marker] of assetMarkers){
