@@ -132,7 +132,17 @@
       else if(b.dataset.navigation==='orbit')home();
       else controls.setMode('interior');
     }));
-    const minimap=MuseumMinimap(document.querySelector('aside'),model);
+    const panelScroll=document.querySelector('.panel-scroll');
+    const minimap=MuseumMinimap(panelScroll,model);
+    function revealAsset(id){
+      const item=panelScroll.querySelector(`[data-asset-id="${CSS.escape(id)}"]`);
+      if(!item)return;
+      mobileControls.openPanel();
+      const group=item.closest('details');
+      if(group)group.open=true;
+      const top=item.getBoundingClientRect().top-panelScroll.getBoundingClientRect().top;
+      panelScroll.scrollTop+=top;
+    }
     const assetMarkers=new Map(),uploadedModels=new Map(),uploadedWallImages=new Map(),assetVersions=new Map();
     let selectedAssetId=null;
     const markerHost=document.querySelector('#asset-markers');
@@ -141,7 +151,7 @@
     for(const [id,location] of locationMarkers){
       location.element.addEventListener('click',()=>{
         if(!controls.state.orthographic||controls.state.mode==='interior')preset('top');
-        document.querySelector(`[data-asset-id="${CSS.escape(id)}"]`)?.scrollIntoView({block:'nearest',behavior:'smooth'});
+        revealAsset(id);
       });
     }
     function imageFit(image,width,height){
@@ -160,7 +170,7 @@
         const media=document.createElement('img');media.src=asset.url;media.alt='';
         const title=document.createElement('span');title.textContent=asset.title;
         marker.append(media,title);
-        marker.addEventListener('click',()=>document.querySelector(`[data-asset-id="${CSS.escape(asset.id)}"]`)?.scrollIntoView({block:'nearest'}));
+        marker.addEventListener('click',()=>revealAsset(asset.id));
         markerHost.append(marker);assetMarkers.set(asset.id,marker);
         if(!asset.placement.wall)return;
         const version=(assetVersions.get(asset.id)||0)+1;assetVersions.set(asset.id,version);

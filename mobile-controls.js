@@ -8,19 +8,28 @@ window.MuseumMobileControls=function(canvas,controls,options={}){
  // 터치 지원은 패널 버튼용, 실제 입력 방식은 조이스틱용으로 따로 판단한다.
  const touchNavigation=()=>lastPointer==='touch'||(lastPointer===null&&primaryTouch.matches&&noHover.matches);
  let pair=null,revision=controls.state.revision;
- const panel=document.querySelector('aside'),panelToggle=document.createElement('button');
- panel.id='options-panel';panelToggle.type='button';panelToggle.className='mobile-panel-toggle';
- panelToggle.setAttribute('aria-controls',panel.id);document.body.append(panelToggle);
- let panelClosed=false;
+ const compact=matchMedia('(max-width: 760px), (max-width: 1024px) and (pointer: coarse)');
+ const panel=document.querySelector('#options-panel'),panelToggle=document.querySelector('.mobile-panel-toggle');
+ let panelOpen=false;
  function syncPanel(){
-  const hidden=touchDevice()&&panelClosed;
+  const hidden=compact.matches&&!panelOpen;
+  if(hidden&&panel.contains(document.activeElement))panelToggle.focus({preventScroll:true});
+  document.body.classList.toggle('compact-panel',compact.matches);
   document.body.classList.toggle('panel-hidden',hidden);
-  panel.inert=hidden;panel.setAttribute('aria-hidden',String(hidden));
+  panel.inert=hidden;
+  panel.setAttribute('aria-hidden',String(hidden));
   panelToggle.setAttribute('aria-expanded',String(!hidden));
-  panelToggle.setAttribute('aria-label',hidden?'패널 열기':'패널 숨기기');
-  panelToggle.title=hidden?'패널 열기':'패널 숨기기';panelToggle.textContent=hidden?'‹':'›';
+  panelToggle.textContent=hidden?'설정 열기':'설정 닫기';
  }
- panelToggle.addEventListener('click',()=>{reset();controls.clear();panelClosed=!panelClosed;syncPanel();});
+ function setPanelOpen(open){
+  if(!compact.matches)return;
+  reset();controls.clear();panelOpen=open;syncPanel();
+ }
+ panelToggle.addEventListener('click',()=>setPanelOpen(!panelOpen));
+ compact.addEventListener('change',()=>{panelOpen=false;syncPanel();});
+ document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&compact.matches&&panelOpen)setPanelOpen(false);
+ });
  const release=(target,id)=>{try{if(target.hasPointerCapture(id))target.releasePointerCapture(id);}catch{}};
  function reset(){for(const id of touches.keys())release(canvas,id);touches.clear();pair=null;}
  function sync(){document.body.classList.toggle('touch-navigation',touchNavigation());}
@@ -57,5 +66,5 @@ window.MuseumMobileControls=function(canvas,controls,options={}){
  canvas.addEventListener('pointerup',end);canvas.addEventListener('lostpointercapture',end);canvas.addEventListener('pointercancel',reset);
  window.addEventListener('blur',reset);window.addEventListener('resize',reset);window.addEventListener('orientationchange',reset);document.addEventListener('visibilitychange',()=>{if(document.hidden)reset();});media.addEventListener('change',configure);configure();
  function update(dt){if(revision!==controls.state.revision){reset();revision=controls.state.revision;sync();}}
- return {update,reset};
+ return {update,reset,openPanel:()=>setPanelOpen(true)};
 };

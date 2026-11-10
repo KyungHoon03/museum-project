@@ -56,11 +56,31 @@ window.MuseumControls=function(canvas,options={}){
  canvas.addEventListener('pointerup',endDrag);canvas.addEventListener('pointercancel',endDrag);canvas.addEventListener('lostpointercapture',()=>{drag=null;});
  document.addEventListener('pointerlockchange',()=>{clear();});
  window.addEventListener('blur',unlock);
- canvas.addEventListener('wheel',e=>{if(!pc()||e.ctrlKey||e.metaKey)return;e.preventDefault();if(state.transitioning||rotating())return;options.onInput?.();zoom(clamp(e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?canvas.clientHeight:1)*.001,-1,1));},{passive:false});
+ const viewport=canvas.closest('.viewport');
+ const app=canvas.closest('.app');
+ function zoomFromInput(delta){
+  if(state.transitioning||rotating())return;
+  options.onInput?.();zoom(delta);
+ }
+ app.addEventListener('wheel',event=>{
+  const zoomGesture=event.ctrlKey||event.metaKey;
+  if(!zoomGesture&&(!pc()||!viewport.contains(event.target)))return;
+  event.preventDefault();
+  const scale=event.deltaMode===1?16:event.deltaMode===2?canvas.clientHeight:1;
+  zoomFromInput(clamp(event.deltaY*scale*.001,-1,1));
+ },{passive:false});
+ window.addEventListener('keydown',event=>{
+  if((!event.ctrlKey&&!event.metaKey)||event.altKey||event.defaultPrevented)return;
+  if(event.target?.closest?.('input,textarea,select,[contenteditable="true"],[role="textbox"]'))return;
+  const direction=event.key==='+'||event.key==='='?-1:event.key==='-'?1:0;
+  if(!direction)return;
+  event.preventDefault();
+  zoomFromInput(direction*.15);
+ });
  canvas.addEventListener('keydown',e=>{if(!pc()||e.ctrlKey||e.metaKey||e.altKey||!supported.has(e.code))return;e.preventDefault();if(e.code==='Home'){clear();options.onHome?.();return;}keys.add(e.code);options.onInput?.();});
  window.addEventListener('keydown',e=>{
   if(e.code!=='Space'||!pc()||e.ctrlKey||e.metaKey||e.altKey)return;
-  if(e.target?.closest?.('input,textarea,select,[contenteditable="true"],[role="textbox"]'))return;
+  if(e.target?.closest?.('button,summary,a[href],input,textarea,select,[contenteditable="true"],[role="textbox"]'))return;
   e.preventDefault();if(e.repeat)return;toggleMode();canvas.focus({preventScroll:true});
  },true);
  window.addEventListener('keyup',e=>keys.delete(e.code));
