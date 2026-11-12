@@ -117,3 +117,36 @@ canvas{touch-action:none}
 .course-panel li { margin-block: .45rem; }
 .course-panel li button { margin-inline-start: .4rem; }
 .course-panel p { margin-bottom: 0; }
+/* 전시 자리: 3D 자리는 네모 점, 빈 자리는 점선. 교환 선택 상자. */
+.asset-location.asset-location-3d{border-radius:5px}
+.asset-location[data-room-index="8"]{background:#5b6b3a}
+.asset-location[data-room-index="9"]{background:#3f6f3a}
+.asset-entry-empty{border-style:dashed}
+.asset-entry-empty .asset-upload-status{color:#9c554d}
+.asset-swap{width:100%;margin-top:.45em;min-height:max(32px,3.6vh);padding:.3em .5em;border:1px solid #b8c2b5;border-radius:6px;background:#fff;color:#38463a;font-family:inherit;font-size:max(12px,.82vw)}
+.asset-model-hint[data-fitted="true"]{color:#7a5a1c}
+/* 조명과 햇빛 패널 */
+.lighting-panel-wrap{margin:.6em 0;padding:.5em .7em;border:1px solid #c9d0c6;border-radius:8px;background:#fbfbf8}
+.lighting-panel-wrap>summary{cursor:pointer;font-weight:700}
+#lighting-panel h3{margin:.8em 0 .35em;font-size:.95em}
+.light-row{display:flex;align-items:center;gap:.5em;margin:.3em 0;font-size:max(12px,.85vw)}
+.light-row>span:first-child{flex:none;width:4.6em;color:#4c5c4d}
+.light-row input[type=range],.light-row select,.light-row input[type=text],.light-row input[type=date]{flex:1;min-width:0}
+.light-row input[type=number]{width:5em}
+.light-value{flex:none;min-width:3.2em;text-align:right;font-variant-numeric:tabular-nums}
+.light-note{margin:.3em 0;color:#66706a;font-size:max(11px,.78vw);line-height:1.45}
+.light-modes{display:flex;gap:.35em;margin:.3em 0}
+.light-modes button,.light-pad button{flex:1;padding:.35em .4em;border:1px solid #b8c2b5;border-radius:6px;background:#f6f7f3;font:inherit;font-size:max(12px,.8vw);cursor:pointer}
+.light-modes button[aria-pressed=true]{background:#3c5a44;color:#fff;border-color:#3c5a44}
+.light-pad{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:.25em}
+.light-list-row{display:flex;gap:.4em;align-items:center;margin:.4em 0}
+.light-list-row select{flex:1;min-width:0}
+.light-list-row .asset-reset-button{margin-top:0}
+.light-editor{margin:.4em 0;padding:.45em;border:1px dashed #c9d0c6;border-radius:6px}
+#light-markers{position:absolute;inset:0;z-index:9;pointer-events:none;overflow:hidden}
+.light-marker{position:absolute;transform:translate(-50%,-50%);width:12px;height:12px;padding:0;border:2px solid #6b4c06;border-radius:50%;background:#ffd34d;pointer-events:auto;cursor:pointer;box-shadow:0 0 6px #ffd34daa}
+.light-marker[data-type=case]{border-radius:3px;width:10px;height:10px}
+.light-marker[data-type=down]{background:#fff1b8}
+.light-marker.light-off{background:#9aa09a;box-shadow:none;border-color:#555}
+.light-marker.light-selected{width:18px;height:18px;background:#ff9d1f;z-index:1}
+.light-marker[hidden]{display:none}

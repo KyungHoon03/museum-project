@@ -8,6 +8,8 @@
  const locationMarkers=new Map();
  const sampleAssets=[];
  const sampleModels=[];
+ const slots=new Map();
+ window.MuseumAssetSlots=slots;
 
  MuseumAssetCatalog.forEach((group,groupIndex)=>{
   const section=document.createElement('details');
@@ -36,38 +38,51 @@
    input.accept=type==='3d'?'.glb,.obj,.stl':'image/*';
    const placement=group.items.find(item=>item[0]===id)[4]||{};
    let sampleAsset=null;
-   const fileLabel=placement.fileLabel||`${title} ${type==='3d'?'3D 파일 선택':'사진 파일 선택'}`;
+   const fileLabel=placement.fileLabel||`${title} ${type==='3d'?'3D 파일 넣기':'파일 넣기'}`;
    input.setAttribute('aria-label',fileLabel);
    const button=document.createElement('button');
    button.type='button';
    button.className='asset-upload-button';
-   button.textContent=fileLabel;
+   button.textContent=type==='3d'?'3D 넣기':'사진 넣기';
+   button.title=fileLabel;
    button.addEventListener('click',()=>input.click());
    const reset=document.createElement('button');
    reset.type='button';
    reset.className='asset-reset-button';
-   reset.textContent='초기화';
+   reset.textContent='예시 복원';
    reset.disabled=true;
-   reset.setAttribute('aria-label',`${title} 업로드 파일 초기화`);
-   reset.addEventListener('click',()=>{
+   reset.setAttribute('aria-label',`${title} 예시 전시물로 되돌리기`);
+   const releaseUrl=asset=>{if(asset&&!asset.isSample&&asset.url.startsWith('blob:')&&![...files.values()].some(other=>other!==asset&&other.url===asset.url))URL.revokeObjectURL(asset.url);};
+   const clear=()=>{
     const asset=files.get(id);
-    if(asset&&!asset.isSample&&asset.url.startsWith('blob:'))URL.revokeObjectURL(asset.url);
+    files.delete(id);
+    releaseUrl(asset);
     input.value='';
     document.dispatchEvent(new CustomEvent('museumassetreset',{detail:{id}}));
-    if(sampleAsset){
-     files.set(id,sampleAsset);
-     renderAsset(sampleAsset);
-     document.dispatchEvent(new CustomEvent('museumassetchange',{detail:{asset:sampleAsset}}));
-    }else{
-     files.delete(id);
-     status.textContent='선택된 파일 없음';
-     preview.replaceChildren();
-     reset.disabled=true;
-    }
+    renderEmpty();
+   };
+   reset.addEventListener('click',()=>{
+    if(!sampleAsset)return;
+    const asset=files.get(id);
+    input.value='';
+    document.dispatchEvent(new CustomEvent('museumassetreset',{detail:{id}}));
+    files.set(id,sampleAsset);
+    releaseUrl(asset);
+    if(type==='3d'&&!sampleAsset.file){status.textContent='예시 3D 모델 불러오는 중...';return;}
+    renderAsset(sampleAsset);
+    document.dispatchEvent(new CustomEvent('museumassetchange',{detail:{asset:sampleAsset}}));
    });
+   // 전시물 빼기: 자리를 비운다(예시 전시물도 뺄 수 있다).
+   const remove=document.createElement('button');
+   remove.type='button';
+   remove.className='asset-reset-button';
+   remove.textContent='빼기';
+   remove.disabled=true;
+   remove.setAttribute('aria-label',`${title} 전시물 빼기`);
+   remove.addEventListener('click',()=>clear());
    const actions=document.createElement('div');
    actions.className='asset-entry-actions';
-   actions.append(button,reset);
+   actions.append(button,remove,reset);
    const status=document.createElement('p');
    status.className='asset-upload-status';
    status.setAttribute('aria-live','polite');
@@ -75,11 +90,20 @@
    const preview=document.createElement('div');
    preview.className='asset-preview';
    row.append(heading,actions,input,status,preview);
+   const renderEmpty=()=>{
+    status.textContent='비어 있음 · 파일을 넣으세요';
+    preview.replaceChildren();
+    remove.disabled=true;
+    reset.disabled=!sampleAsset;
+    row.classList.add('asset-entry-empty');
+   };
    const renderAsset=asset=>{
+    row.classList.remove('asset-entry-empty');
     status.textContent=asset.isSample
      ?`${type==='3d'?'예시 3D 모델':'예시 사진'} · ${asset.url.split('/').pop()}`
-     :asset.file.name;
-    reset.disabled=asset.isSample===true;
+     :(asset.file?asset.file.name:asset.url.split('/').pop());
+    reset.disabled=!sampleAsset||asset===sampleAsset;
+    remove.disabled=false;
     preview.replaceChildren();
     if(type==='2d'){
      const media=document.createElement('img');
@@ -95,6 +119,7 @@
      preview.append(placeholder);
     }
    };
+   slots.set(id,{type,title,room:group.room,at,placement,render:asset=>{files.set(id,asset);renderAsset(asset);},clear:()=>renderEmpty()});
    if(type==='2d'&&placement.sampleImage){
     sampleAsset={id,title,type,room:group.room,at,placement,file:null,url:placement.sampleImage,isSample:true};
     files.set(id,sampleAsset);
@@ -119,7 +144,7 @@
     scaleLabel.className='asset-scale-label';
     scaleLabel.textContent='크기 ';
     const scaleInput=document.createElement('input');
-    scaleInput.type='range';scaleInput.min='0.5';scaleInput.max='4';scaleInput.step='0.1';scaleInput.value='1';
+    scaleInput.type='range';scaleInput.min='0.3';scaleInput.max='3';scaleInput.step='0.1';scaleInput.value='1';
     scaleInput.disabled=true;scaleInput.setAttribute('aria-label',`${title} 크기`);
     const scaleValue=document.createElement('output');
     scaleValue.textContent='1.0x';
@@ -128,16 +153,16 @@
     positionControls.className='asset-position-controls';
     const positionHint=document.createElement('span');
     positionHint.className='asset-position-hint';
-    positionHint.textContent='위치 조정 · 10cm';
+    positionHint.textContent='받침면 위 이동 · 10cm';
     positionControls.append(positionHint);
     const positionPad=document.createElement('div');
     positionPad.className='asset-position-pad';
     positionPad.setAttribute('role','group');
     positionPad.setAttribute('aria-label',`${title} 위치 조정`);
     const moveButtons=[
-     {label:'위로 이동',text:'↑',delta:[0,-.1]},
+     {label:'안쪽(뒤)으로 이동',text:'↑',delta:[0,-.1]},
      {label:'왼쪽으로 이동',text:'←',delta:[-.1,0]},
-     {label:'아래로 이동',text:'↓',delta:[0,.1]},
+     {label:'앞쪽(관람객 쪽)으로 이동',text:'↓',delta:[0,.1]},
      {label:'오른쪽으로 이동',text:'→',delta:[.1,0]}
     ];
     moveButtons.forEach(({label,text,delta})=>{
@@ -162,7 +187,11 @@
     const rotateRight=document.createElement('button');
     rotateRight.type='button';rotateRight.textContent='↷ 90°';rotateRight.disabled=true;
     rotateRight.setAttribute('aria-label',`${title} 오른쪽으로 90도 회전`);
-    rotation.append(selectModel,rotateLeft,rotateRight);
+    const tilt=document.createElement('button');
+    tilt.type='button';tilt.textContent='눕히기/세우기';tilt.disabled=true;
+    tilt.setAttribute('aria-label',`${title} 눕히거나 세우기`);
+    tilt.addEventListener('click',()=>updateTransform({tiltToggle:true}));
+    rotation.append(selectModel,rotateLeft,rotateRight,tilt);
     modelControls.append(hint,scaleLabel,positionControls,rotation);
     row.append(modelControls);
     const updateTransform=(delta={})=>document.dispatchEvent(new CustomEvent('museumassettransform',{
@@ -182,6 +211,12 @@
      positionPad.querySelectorAll('button').forEach(button=>button.disabled=!selected);
      rotateLeft.disabled=!selected;
      rotateRight.disabled=!selected;
+     tilt.disabled=!selected;
+     if(selected&&hint.dataset.fitted)hint.textContent='모형 선택됨 · 진열 공간에 맞게 실제 크기보다 줄여 놓았습니다.';
+    };
+    modelControls._setFitted=fitted=>{
+     hint.dataset.fitted=fitted?'true':'';
+     if(fitted)hint.textContent='진열 공간에 맞게 실제 크기보다 줄여 놓았습니다.';
     };
     modelControls._reset=()=>{
      scaleInput.value='1';
@@ -190,12 +225,29 @@
      modelControls._setSelected(false);
     };
    }
+   // 같은 종류(2D/3D) 자리끼리 전시물을 맞바꾼다.
+   const swap=document.createElement('select');
+   swap.className='asset-swap';
+   swap.setAttribute('aria-label',`${title} 전시물을 다른 자리와 바꾸기`);
+   const fillSwap=()=>{
+    swap.replaceChildren(new Option('다른 자리와 바꾸기…',''));
+    for(const [otherId,other] of slots)if(otherId!==id&&other.type===type)swap.append(new Option(`${other.room} ${other.title}`,otherId));
+   };
+   swap.addEventListener('focus',fillSwap);
+   swap.addEventListener('pointerdown',fillSwap);
+   swap.append(new Option('다른 자리와 바꾸기…',''));
+   swap.addEventListener('change',()=>{
+    const otherId=swap.value;swap.value='';
+    if(otherId)swapSlots(id,otherId);
+   });
+   row.append(swap);
    section.append(row);
 
    const location=document.createElement('button');
    location.type='button';
    location.className='asset-location';
-   location.textContent=title.replace('번','');
+   location.textContent=(title.match(/^\d+/)||[title])[0];
+   location.classList.add('asset-location-'+type);
    location.title=`${group.room} ${title} 위치 표시 · 눌러서 업로드 항목 보기`;
    location.setAttribute('aria-label',`${group.room} ${title} 위치 보기`);
    location.dataset.roomIndex=String(groupIndex);
@@ -225,6 +277,18 @@
   });
   host.append(section);
  });
+ // 두 자리의 전시물을 맞바꾼다. 파일은 그대로 두고 자리 정보(위치·배치)만 바꿔 다시 놓는다.
+ function swapSlots(a,b){
+  const slotA=slots.get(a),slotB=slots.get(b),assetA=files.get(a),assetB=files.get(b);
+  if(!slotA||!slotB)return;
+  const moved=(asset,id,slot)=>asset&&(asset.type==='2d'?asset.url:asset.file)&&{...asset,id,title:slot.title,room:slot.room,at:slot.at,placement:{...slot.placement,scale:undefined},isSample:false};
+  const nextA=moved(assetB,a,slotA),nextB=moved(assetA,b,slotB);
+  for(const [id,slot,asset] of [[a,slotA,nextA],[b,slotB,nextB]]){
+   document.dispatchEvent(new CustomEvent('museumassetreset',{detail:{id}}));
+   if(asset){slot.render(asset);document.dispatchEvent(new CustomEvent('museumassetchange',{detail:{asset}}));}
+   else{files.delete(id);slot.clear();}
+  }
+ }
  window.MuseumAssetLocationMarkers=locationMarkers;
  window.addEventListener('load',()=>{
   sampleAssets.forEach(asset=>document.dispatchEvent(new CustomEvent('museumassetchange',{detail:{asset}})));
@@ -270,7 +334,12 @@
   if(controls){
    controls.dataset.ready='true';
    controls._setSelected(false);
+   controls._setFitted(event.detail?.fitted);
   }
+ });
+ document.addEventListener('museumassetfit',event=>{
+  const row=host.querySelector(`[data-asset-id="${CSS.escape(event.detail?.id||'')}"]`);
+  row?.querySelector('.asset-model-controls')?._setFitted(event.detail?.fitted);
  });
  document.addEventListener('museumassetreset',event=>{
   const row=host.querySelector(`[data-asset-id="${CSS.escape(event.detail?.id||'')}"]`);

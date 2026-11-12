@@ -253,7 +253,8 @@
   {id:'corridor-east-exit-frame',a:[1120-d.wallThickness/d.scale,188],b:[1120-d.wallThickness/d.scale,241],inward:[-1,0],bottom:.35,top:2.45,room:'link'},
   {id:'donated-east-long-frame',a:[1145-d.wallThickness/d.scale,270],b:[1145-d.wallThickness/d.scale,365],inward:[-1,0],bottom:1.45,top:2.50,room:'donated'}
  ];
- const lobbySouthFrameOffset=.11/d.scale;
+ // 매입부 뒤판 실내 쪽 면(벽선에서 .07)에 액자를 건다. 이전 .11은 액자가 뒤판에서 4cm 떠 있었다.
+ const lobbySouthFrameOffset=.07/d.scale;
  d.wallArtFrames.push({id:'lobby-south-number-4',a:[210,496-lobbySouthFrameOffset],b:[490,496-lobbySouthFrameOffset],inward:[0,-1],bottom:.55,top:2.40,room:'bow'});
  d.wallArtFrames.push({id:'video-flat-wall-frame',a:[149.7,298.5],b:[236.3,298.5],inward:[0,-1],bottom:.60,top:2.35,room:'video'});
  // 로비 남측 외벽의 긴 매입 전시부. 외곽선은 유지하고 실내 쪽 벽 두께를 확보한다.
