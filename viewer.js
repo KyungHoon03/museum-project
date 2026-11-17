@@ -91,6 +91,7 @@
         }
         if(uSurface==5){albedo=vec3(.72,.72,.70);shininess=4.;ks=0.;} // 천장(1인칭 전용)
         if(uVertexColor){shininess=36.;ks=.22;}
+        if(uSurface==10){shininess=10.;ks=.04;} // 관람 인원 마네킹: 무광
         bool glass=uAlpha<.99&&!uUseAssetTexture;
         if(glass){shininess=160.;ks=1.;if(dot(n,V)<0.)n=-n;}
         if(uUseAssetTexture){
@@ -219,6 +220,8 @@
     `);
     const SU=D.uniforms(gl,shadowProgram,['uModel','uVP']);
     const sunVP=M.create();let shadowKey='',modelRevision=0;
+    /* 관람 인원(더미 인간): 인원이 바뀔 때만 메시를 다시 만들고, 그림자 지도도 그때만 다시 그린다. */
+    const visitors=MuseumVisitors(gl,{collision,host:document.querySelector('#visitors-panel'),onChange:()=>{modelRevision++;}});
     function renderShadows(env){
       const key=env.sunDir.map(v=>v.toFixed(4)).join()+':'+modelRevision;
       if(key===shadowKey)return;shadowKey=key;
@@ -229,6 +232,7 @@
       gl.useProgram(shadowProgram);gl.uniformMatrix4fv(SU.uVP,false,sunVP);
       for(const p of model.parts){if(!p.renderGpu||['glass','displayGlass','grass'].includes(p.group))continue;gl.uniformMatrix4fv(SU.uModel,false,matrix(p));gl.bindVertexArray(p.renderGpu.vao);gl.drawElements(gl.TRIANGLES,p.renderGpu.count,gl.UNSIGNED_SHORT,0);}
       for(const u of uploadedModels.values()){gl.uniformMatrix4fv(SU.uModel,false,u.matrix);gl.bindVertexArray(u.renderGpu.vao);gl.drawElements(gl.TRIANGLES,u.renderGpu.count,gl.UNSIGNED_SHORT,0);}
+      for(const v of visitors.meshes){gl.uniformMatrix4fv(SU.uModel,false,identity);gl.bindVertexArray(v.vao);gl.drawElements(gl.TRIANGLES,v.count,gl.UNSIGNED_SHORT,0);}
       gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     }
     /* 조명 기구 모형: 원통(트랙 스포트 몸체·전선), 원판(다운라이트·발광면). */
@@ -678,6 +682,7 @@
       drawFixtures();
       // 유리 안쪽 유물과 사진을 먼저 그리고, 반투명 유리는 마지막에 카메라에서 먼 순서로 덮는다.
       for(const uploaded of uploadedModels.values())draw(uploaded.renderGpu,uploaded.matrix,[.42,.36,.28],1,false,0,null,Boolean(uploaded.mesh.col));
+      for(const mesh of visitors.meshes)draw(mesh,identity,[.6,.6,.6],1,false,10,null,true);
       // 유물 접지 그림자: 받침면 위에 부드러운 타원을 깐다(실내 조명은 그림자 지도를 쓰지 않으므로 접촉 그림자로 대신).
       gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
       for(const uploaded of uploadedModels.values())if(uploaded.decal)draw(decalMesh,uploaded.decal,[0,0,0],.42,false,8);
@@ -709,6 +714,6 @@
       minimap.update(camera,controls.state,r);
       for(const {el,p} of labels){const anchor=controls.state.mode==='interior'?[p[0],1.85,p[2]]:p,clip=[0,1,2,3].map(i=>vp[i]*anchor[0]+vp[4+i]*anchor[1]+vp[8+i]*anchor[2]+vp[12+i]),x=clip[0]/clip[3],y=clip[1]/clip[3];el.hidden=clip[3]<=0||Math.abs(x)>1||Math.abs(y)>1||(controls.state.mode==='interior'&&labelVisibility.countWalls(camera.eye,anchor)>1);el.style.left=(x*.5+.5)*r.width+'px';el.style.top=(-y*.5+.5)*r.height+'px';}
     });
-    window.MuseumViewer={gl,model,controls,home,exhibits:uploadedModels,wallImages:uploadedWallImages,groundNavigation:waypointControls,partMatrix:matrix,get camera(){return lastCamera;},get surfaceStats(){return surfaceStats;},get woodReady(){return woodReady;}};
+    window.MuseumViewer={gl,model,controls,home,visitors,exhibits:uploadedModels,wallImages:uploadedWallImages,groundNavigation:waypointControls,partMatrix:matrix,get camera(){return lastCamera;},get surfaceStats(){return surfaceStats;},get woodReady(){return woodReady;}};
   } catch(e){error.hidden=false;error.textContent=e.message;console.error(e);}
 })();

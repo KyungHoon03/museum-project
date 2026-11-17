@@ -150,3 +150,31 @@ canvas{touch-action:none}
 .light-marker.light-off{background:#9aa09a;box-shadow:none;border-color:#555}
 .light-marker.light-selected{width:18px;height:18px;background:#ff9d1f;z-index:1}
 .light-marker[hidden]{display:none}
+/* 관람 인원 배치 패널 (visitors.js) */
+.visitors-panel-wrap{margin:.6em 0;padding:.5em .7em;border:1px solid #c9d0c6;border-radius:8px;background:#fbfbf8}
+.visitors-panel-wrap>summary{cursor:pointer;font-weight:700}
+#visitors-panel h3{margin:.8em 0 .35em;font-size:.95em}
+.visitor-presets{display:grid;grid-template-columns:1fr 1fr;gap:.3em}
+.visitor-presets button,.visitor-actions button{padding:.4em .3em;border:1px solid #b8c2b5;border-radius:6px;background:#f6f7f3;font:inherit;font-size:max(12px,.8vw);cursor:pointer}
+.visitor-presets button:hover,.visitor-actions button:hover{background:#e9eee6}
+.visitor-row{display:grid;grid-template-columns:1fr 4.2em 2.8em;grid-template-areas:"name name got" "range range num";align-items:center;gap:.15em .4em;margin:.45em 0;font-size:max(12px,.85vw)}
+.visitor-name{grid-area:name;color:#2f3b31;font-weight:600}
+.visitor-name small{font-weight:400;color:#66706a}
+.visitor-row input[type=range]{grid-area:range;min-width:0}
+.visitor-row input[type=number]{grid-area:num;width:100%}
+.visitor-placed{grid-area:got;text-align:right;font-variant-numeric:tabular-nums;color:#4c5c4d}
+.visitor-placed.short{color:#b23a26;font-weight:700}
+.visitor-swatch{display:inline-block;width:.8em;height:.8em;margin-right:.35em;border-radius:2px;vertical-align:-.05em}
+.visitor-actions{display:flex;gap:.35em;margin:.5em 0}
+.visitor-actions button{flex:1}
+.visitor-status{margin:.4em 0;padding:.45em .55em;border-radius:6px;background:#f1f3ee;font-size:max(12px,.82vw);line-height:1.5}
+.visitor-density{font-weight:700}
+.visitor-status[data-level=여유] .visitor-density{color:#2e6b3c}
+.visitor-status[data-level=보통] .visitor-density{color:#9a6a00}
+.visitor-status[data-level=혼잡] .visitor-density{color:#b23a26}
+.visitor-short{color:#b23a26}
+.visitor-sources summary{cursor:pointer;font-size:max(12px,.82vw);color:#4c5c4d}
+.visitor-sources ul{margin:.3em 0;padding-left:1.1em;font-size:max(11px,.78vw);line-height:1.45;color:#4c5c4d}
+.visitor-rooms{margin:.35em 0;padding:0;list-style:none;font-size:max(11px,.8vw)}
+.visitor-rooms li{display:flex;justify-content:space-between;gap:.5em;padding:.1em 0;border-bottom:1px dotted #d3d8cf}
+.visitor-rooms li span:last-child{font-variant-numeric:tabular-nums;color:#4c5c4d}

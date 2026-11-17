@@ -23,7 +23,8 @@ window.MuseumCollision=function(model,layout){
  const local=(p,b)=>{const x=p[0]-b.position[0],z=p[2]-b.position[2],c=Math.cos(b.yaw),s=Math.sin(b.yaw);return [c*x-s*z,s*x+c*z];};
  // 눈높이가 아닌 발끝~머리 범위. 낮은 받침/상판도 막고 상부 보는 통과한다.
  const relevant=(b,y)=>y+.18>b.position[1]-b.size[1]/2&&y-1.525<b.position[1]+b.size[1]/2;
- function blocked(p){return boxes.some(b=>{const q=local(p,b);return relevant(b,p[1])&&Math.abs(q[0])<b.size[0]/2+radius&&Math.abs(q[1])<b.size[2]/2+radius;});}
+ // r: 몸 반지름. 기본은 1인칭 카메라(8cm), 관람 인원 배치(visitors.js)는 카테고리별 반지름을 넘긴다.
+ function blocked(p,r=radius){return boxes.some(b=>{const q=local(p,b);return relevant(b,p[1])&&Math.abs(q[0])<b.size[0]/2+r&&Math.abs(q[1])<b.size[2]/2+r;});}
  function hit(a,b,box){
   if(!relevant(box,a[1]))return null;const p=local(a,box),q=local(b,box),half=[box.size[0]/2+radius,box.size[2]/2+radius];let enter=-Infinity,exit=Infinity,normal=null;
   for(let i=0;i<2;i++){const d=q[i]-p[i];if(Math.abs(d)<1e-10){if(Math.abs(p[i])>=half[i])return null;continue;}
@@ -42,5 +43,8 @@ window.MuseumCollision=function(model,layout){
  }
  function inside(p){const v=(layout.floor?.polygon||layout.envelope).map(MuseumGeometry.point);let yes=false;for(let i=0,j=v.length-1;i<v.length;j=i++){if((v[i][1]>p[2])!==(v[j][1]>p[2])&&p[0]<(v[j][0]-v[i][0])*(p[2]-v[i][1])/(v[j][1]-v[i][1])+v[i][0])yes=!yes;}return yes;}
  function spawn(wanted){if(inside(wanted)&&!blocked(wanted))return [...wanted];for(let r=.2;r<40;r+=.2)for(let i=0;i<32;i++){const p=[wanted[0]+r*Math.cos(i*Math.PI/16),wanted[1],wanted[2]+r*Math.sin(i*Math.PI/16)];if(inside(p)&&!blocked(p))return p;}throw Error('진입 가능한 실내 위치를 찾지 못했습니다.');}
- return {move,spawn,blocked};
+ // 평면 범위(lo~hi) 근처 부재만 미리 골라 검사하는 blocked. 방 하나의 바닥을 촘촘히 검사할 때 쓴다.
+ function region(lo,hi,pad=1){const sub=boxes.filter(b=>{const e=Math.hypot(b.size[0],b.size[2])/2+pad;return b.position[0]+e>lo[0]&&b.position[0]-e<hi[0]&&b.position[2]+e>lo[1]&&b.position[2]-e<hi[1];});
+  return (p,r=radius)=>sub.some(b=>{const q=local(p,b);return relevant(b,p[1])&&Math.abs(q[0])<b.size[0]/2+r&&Math.abs(q[1])<b.size[2]/2+r;});}
+ return {move,spawn,blocked,region};
 };
