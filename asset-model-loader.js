@@ -38,7 +38,7 @@ window.MuseumAssetModelLoader=(()=>{
    matrix[1]*p[0]+matrix[5]*p[1]+matrix[9]*p[2]+matrix[13],
    matrix[2]*p[0]+matrix[6]*p[1]+matrix[10]*p[2]+matrix[14]];
  }
- function trianglesToMesh(positions,normals,indices){
+ function trianglesToMesh(positions,normals,indices,colors=null){
   if(!positions.length||!indices.length||indices.length%3)throw new Error('삼각형 메시 데이터가 없습니다.');
   const count=positions.length/3;
   if(count>maxVertices||indices.some(i=>i>=count))throw new Error('모델이 너무 큽니다. 정점 65,535개 이하로 내보내 주세요.');
@@ -63,7 +63,10 @@ window.MuseumAssetModelLoader=(()=>{
    const l=Math.hypot(normals[i*3],normals[i*3+1],normals[i*3+2])||1;
    nrm[i*3]=normals[i*3]/l;nrm[i*3+1]=normals[i*3+1]/l;nrm[i*3+2]=normals[i*3+2]/l;
   }
-  return {pos:new Float32Array(pos),nrm:new Float32Array(nrm),idx:new Uint16Array(indices)};
+  // extent: 원본 단위의 가장 긴 변. 실제 크기 추정(m/cm/mm)에 쓴다. size: 정규화 전 각 축 길이.
+  const mesh={pos:new Float32Array(pos),nrm:new Float32Array(nrm),idx:new Uint16Array(indices),extent,size:max.map((v,k)=>v-min[k])};
+  if(colors&&colors.length===positions.length)mesh.col=new Float32Array(colors);
+  return mesh;
  }
  async function glb(file){
   const buffer=await file.arrayBuffer(),view=new DataView(buffer);
@@ -114,10 +117,16 @@ window.MuseumAssetModelLoader=(()=>{
   return trianglesToMesh(positions,normals,indices);
  }
  async function obj(file){
-  const text=await file.text(),vertices=[],faces=[];
+  const text=await file.text(),vertices=[],vertexColors=[],faces=[];
+  let hasColor=false;
   for(const line of text.split(/\r?\n/)){
    const values=line.trim().split(/\s+/);
-   if(values[0]==='v'&&values.length>=4)vertices.push(values.slice(1,4).map(Number));
+   if(values[0]==='v'&&values.length>=4){
+    vertices.push(values.slice(1,4).map(Number));
+    // 정점 색 확장(v x y z r g b). 0~1 또는 0~255 모두 받는다.
+    if(values.length>=7){const c=values.slice(4,7).map(Number),k=c.some(v=>v>1)?1/255:1;vertexColors.push(c.map(v=>v*k));hasColor=true;}
+    else vertexColors.push(null);
+   }
    else if(values[0]==='f'&&values.length>=4){
     const face=values.slice(1).map(token=>{
      let index=Number(token.split('/')[0]);
@@ -127,9 +136,13 @@ window.MuseumAssetModelLoader=(()=>{
     for(let i=1;i<face.length-1;i++)faces.push(face[0],face[i],face[i+1]);
    }
   }
-  const pos=[],idx=[];
-  for(const source of faces){if(!vertices[source])throw new Error('OBJ 면이 유효하지 않습니다.');pos.push(...vertices[source]);idx.push(idx.length);}
-  return trianglesToMesh(pos,null,idx);
+  const pos=[],idx=[],col=[];
+  for(const source of faces){
+   if(!vertices[source])throw new Error('OBJ 면이 유효하지 않습니다.');
+   pos.push(...vertices[source]);idx.push(idx.length);
+   if(hasColor)col.push(...(vertexColors[source]||[.55,.5,.45]));
+  }
+  return trianglesToMesh(pos,null,idx,hasColor?col:null);
  }
  async function stl(file){
   const buffer=await file.arrayBuffer(),view=new DataView(buffer),pos=[],idx=[];

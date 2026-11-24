@@ -194,7 +194,15 @@
  const entranceBay=(entranceSouth.b[1]-entranceSouth.a[1])/entranceSouth.divisions;
  entranceSouth.a=[205,entranceSouth.a[1]+entranceBay];entranceSouth.divisions=2;
  for(const item of d.detailBoxes.filter(p=>p.id.startsWith('reception-')))item.at[1]+=entranceBay;
- d.walls.find(w=>w.id==='entrance-transom').b=[205,496-d.wallThickness/d.scale];
+ const entranceTransom=d.walls.find(w=>w.id==='entrance-transom');
+ entranceTransom.b=[205,496-d.wallThickness/d.scale];
+ const transomDoorStart=d.frames.find(f=>f.id==='entrance-glass-north').b[1];
+ const transomDoorEnd=entranceSouth.a[1],transomEnd=entranceTransom.b[1],transomIndex=d.walls.indexOf(entranceTransom);
+ d.walls.splice(transomIndex,1,
+  {id:'entrance-transom-north',a:[205,318],b:[205,transomDoorStart],bottom:2.5,height:2.8,thickness:.14,room:'bow'},
+  {id:'entrance-door-lintel',a:[205,transomDoorStart],b:[205,transomDoorEnd],bottom:2.5,height:2.8,thickness:.14,room:'bow'},
+  {id:'entrance-transom-south',a:[205,transomDoorEnd],b:[205,transomEnd],bottom:2.5,height:2.8,thickness:.14,room:'bow'}
+ );
  // 사용자 빨간 테두리: 체험마루 남측을 따라 넓힌 야외 마당과 낮은 경계벽.
  d.eyeHeight=1.575;
  d.floor.woodRegion={bounds:[552,256,790,480],tileSize:[2.4,2.4],asset:'maruWood'};
@@ -209,13 +217,15 @@
  const boundary=[[492,496],[492,584],[900,584],[900,480],[790,480]];
  for(let i=0;i<boundary.length-1;i++)d.walls.push({id:'outdoor-boundary-'+i,a:boundary[i],b:boundary[i+1],height:d.eyeHeight*.4,thickness:.16,room:'outdoor',evidence:'사용자 빨간 테두리: 카메라 높이 0.4배의 통과 불가능한 낮은 경계벽'});
  Object.assign(d.shell.find(w=>w.id==='shell-bow-south').openings[0],{kind:'opening',note:'사용자 체크한 쪽문: 유리 없이 야외로 걸어서 통과'});
+ d.shell.find(w=>w.id==='shell-maru-glass').openings=[
+  {from:0,to:.14,height:2.35,kind:'opening',note:'사용자 확인: 야외체험장과 체험마루를 잇는 출입문'},
+  {from:.14,to:.985,height:2.65,kind:'glazed',divisions:6,note:'야외 방향 연속 유리문'}
+ ];
  const roomNames={bow:'중앙 로비',video:'영상실',long:'주 전시실',link:'중앙 복도'};
  const entryPoints={bow:[320,420],video:[185,260],long:[620,110],link:[610,220],maru:[650,350],planned:[910,325],donated:[1100,290],outdoor:[700,540],immersive:[930,110]};
  for(const room of d.rooms){if(roomNames[room.id])room.name=roomNames[room.id];room.entryAt=entryPoints[room.id];}
  d.unresolved=d.unresolved.filter(s=>!s.includes('전시품·전시대'));
  d.unresolved.push('전시대·입구 책상·활 모양 천장·동선 아치를 추가. 전시품과 인쇄물은 제외. 위치·곡률·개수는 관찰에 따른 근사이며 실측 복제는 아님');
- // 족자 설치 예정 통로: 렌더링하지 않는 이동 차단면.
- d.navigationBarriers=[{id:'scroll-passage-blocker',a:[400,210],b:[400,251],height:2.8,thickness:.18}];
  const circle=(x,z,r)=>Array.from({length:48},(_,i)=>[x+Math.cos(i*Math.PI/24)*r,z+Math.sin(i*Math.PI/24)*r]);
  d.detailExtrusions.push(
   {id:'planned-round-table-top',polygon:circle(910,325,26),bottom:.75,height:.09,color:[.52,.33,.18],room:'planned'},
@@ -227,9 +237,6 @@
  for(const table of d.galleryTables){
   d.detailBoxes.push({id:table.id+'-hanging-screen',at:[(table.a[0]+table.b[0])/2,175],bottom:table.height+.20,size:[(table.b[0]-table.a[0])*d.scale,2.48-table.height-.20,.035],color:[.82,.81,.76],room:'long'});
  }
- const scrollWall=d.walls.find(w=>w.id==='gallery-transition'),scrollOpening=scrollWall.openings[0];
- const scrollEnds=[scrollOpening.from,scrollOpening.to].map(t=>scrollWall.a.map((v,i)=>v+(scrollWall.b[i]-v)*t));
- d.detailBoxes.push({id:'gallery-door-hanging-screen',at:[400,(scrollEnds[0][1]+scrollEnds[1][1])/2],bottom:.25,size:[.035,scrollOpening.height-.25,Math.abs(scrollEnds[1][1]-scrollEnds[0][1])*d.scale],color:[.82,.81,.76],room:'long'});
  // 사방의 여백을 남기고 보 아래에 두 가닥으로 매단다. 기존 하부 간격은 유지.
  for(const screen of d.detailBoxes.filter(b=>b.id.endsWith('-hanging-screen'))){
   const axis=screen.size[0]>screen.size[2]?0:2,topGap=.18,sideGap=.12;
@@ -253,7 +260,8 @@
   {id:'corridor-east-exit-frame',a:[1120-d.wallThickness/d.scale,188],b:[1120-d.wallThickness/d.scale,241],inward:[-1,0],bottom:.35,top:2.45,room:'link'},
   {id:'donated-east-long-frame',a:[1145-d.wallThickness/d.scale,270],b:[1145-d.wallThickness/d.scale,365],inward:[-1,0],bottom:1.45,top:2.50,room:'donated'}
  ];
- const lobbySouthFrameOffset=.11/d.scale;
+ // 매입부 뒤판 실내 쪽 면(벽선에서 .07)에 액자를 건다. 이전 .11은 액자가 뒤판에서 4cm 떠 있었다.
+ const lobbySouthFrameOffset=.07/d.scale;
  d.wallArtFrames.push({id:'lobby-south-number-4',a:[210,496-lobbySouthFrameOffset],b:[490,496-lobbySouthFrameOffset],inward:[0,-1],bottom:.55,top:2.40,room:'bow'});
  d.wallArtFrames.push({id:'video-flat-wall-frame',a:[149.7,298.5],b:[236.3,298.5],inward:[0,-1],bottom:.60,top:2.35,room:'video'});
  // 로비 남측 외벽의 긴 매입 전시부. 외곽선은 유지하고 실내 쪽 벽 두께를 확보한다.
