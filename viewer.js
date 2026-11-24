@@ -7,6 +7,25 @@
     const gl=canvas.getContext('webgl2',{antialias:true});
     if(!gl)throw new Error('WebGL2를 사용할 수 없습니다. WebGL2 지원 브라우저에서 열어 주세요.');
     const M=D.M4,model=MuseumGeometry.build(),collision=MuseumCollision(model,MuseumLayout);
+    const coursePassageParts=new Set();
+    for(const wall of [...(MuseumLayout.shell||[]),...(MuseumLayout.walls||[])]){
+      const thickness=wall.thickness||MuseumLayout.wallThickness,inset=wall.inset||[0,0];
+      const a=MuseumGeometry.point(wall.a).map((value,index)=>value+inset[index]*thickness/2);
+      const b=MuseumGeometry.point(wall.b).map((value,index)=>value+inset[index]*thickness/2);
+      const dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz);
+      for(const [index,opening] of (wall.openings||[]).entries()){
+        if(opening.kind!=='opening')continue;
+        const t=(opening.from+opening.to)/2,center=[a[0]+dx*t,a[1]+dz*t],normal=[-dz/length,dx/length],offset=.24;
+        const from=[center[0]-normal[0]*offset,MuseumLayout.eyeHeight,center[1]-normal[1]*offset];
+        const middle=[center[0],MuseumLayout.eyeHeight,center[1]];
+        const to=[center[0]+normal[0]*offset,MuseumLayout.eyeHeight,center[1]+normal[1]*offset];
+        if([from,middle,to].every(point=>collision.inside(point)&&!collision.blocked(point))&&
+           collision.clear(from,middle)&&collision.clear(middle,to))
+          coursePassageParts.add(`${wall.id}-lintel-${index}`);
+      }
+    }
+    for(const id of ['entrance-door-lintel-end','gallery-cross-1','gallery-cross-2','gallery-cross-3','video-route-arch','gallery-to-bow-joint'])
+      coursePassageParts.add(id);
     const initialEntry=MuseumGeometry.point([125,430]); // 사용자 체크 위치: 서측 입구 대기 공간
     let flight=null;
     function cancelFlight(){flight=null;controls.state.transitioning=false;}
@@ -291,14 +310,30 @@
       if(!path)return;
       const lengths=[0];for(let i=1;i<path.length;i++)lengths.push(lengths[i-1]+Math.hypot(...path[i].map((v,k)=>v-path[i-1][k])));
       controls.setMode('interior',destination);Object.assign(controls.state,pose);if(yaw!==undefined)Object.assign(controls.state,{yaw,pitch:0});controls.clear();mobileControls.reset();
-      flight={start,end:controls.camera(),began:performance.now(),duration:coursePlayback ? Math.max(380,lengths.at(-1)/1.8*1000) : Math.min(1600,Math.max(380,lengths.at(-1)*65)),path,lengths};controls.state.transitioning=true;
+      flight={start,end:controls.camera(),began:performance.now(),duration:coursePlayback ? Math.max(380,lengths.at(-1)/1.8*1000) : Math.min(1600,Math.max(380,lengths.at(-1)*65)),path,lengths,coursePlayback};controls.state.transitioning=true;
     }
     const waypointControls=MuseumPointNavigation(canvas,controls,collision,model,
       destination=>travel(destination),destination=>{
       cancelFlight();controls.setMode('interior',destination);controls.clear();mobileControls.reset();lastCamera=null;
     });
-    const course=MuseumCourse(waypointControls.points,{
+    const course=MuseumCourse({
+      eyeHeight:controls.state.minEyeHeight,
       find:(from,to)=>MuseumPathfinding.find(from,to,collision),
+      isWalkable:point=>collision.inside(point)&&!collision.blocked(point),
+      isSafe:path=>{
+        for(let i=1;i<path.length;i++){
+          const from=path[i-1],to=path[i],distance=Math.hypot(to[0]-from[0],to[2]-from[2]);
+         if(!collision.clear(from,to))return false;
+          const moved=collision.move(from,to);
+          if(moved.some((value,index)=>Math.abs(value-to[index])>.005))return false;
+          const steps=Math.max(1,Math.ceil(distance/.05));
+          for(let step=0;step<=steps;step++){
+            const t=step/steps,point=from.map((value,index)=>value+(to[index]-value)*t);
+            if(collision.blocked(point))return false;
+          }
+        }
+        return path.length>0;
+      },
       enter:(eye,yaw)=>{
         controls.setMode('interior',eye);
         Object.assign(controls.state,{yaw,pitch:0});
@@ -334,6 +369,7 @@
       selected=name;sync();
     }
     document.querySelectorAll('[data-navigation]').forEach(b=>b.addEventListener('click',()=>{
+      if(courseDrawingMode)return;
       course.stop();
       cancelFlight();
       if(b.dataset.navigation==='plan')preset('top');
@@ -353,7 +389,15 @@
     }
     const assetMarkers=new Map(),uploadedModels=new Map(),uploadedWallImages=new Map(),assetVersions=new Map();
     let selectedAssetId=null;
+    let courseDrawingMode=false;
     const markerHost=document.querySelector('#asset-markers');
+    document.addEventListener('museumcoursedrawingchange',event=>{
+      courseDrawingMode=event.detail?.active===true;
+      markerHost.hidden=courseDrawingMode;
+      if(courseDrawingMode)document.documentElement.dataset.courseDrawingMode='true';
+      else delete document.documentElement.dataset.courseDrawingMode;
+      document.querySelectorAll('[data-navigation]').forEach(button=>{button.disabled=courseDrawingMode;});
+    });
     const locationHost=document.querySelector('#asset-locations');
     const locationMarkers=MuseumAssetLocationMarkers;
     for(const [id,location] of locationMarkers){
@@ -656,9 +700,27 @@
       let camera=controls.camera();
       if(flight){
         const t=Math.min(1,(performance.now()-flight.began)/flight.duration),s=t*t*(3-2*t),mix=(a,b)=>a.map((v,i)=>v+(b[i]-v)*s),normalize=v=>{const n=Math.hypot(...v)||1;return v.map(x=>x/n);};
-        const a=flight.start,b=flight.end,eye=mix(a.eye,b.eye),direction=normalize(mix(normalize(a.target.map((v,i)=>v-a.eye[i])),normalize(b.target.map((v,i)=>v-b.eye[i]))));
+        const a=flight.start,b=flight.end,eye=mix(a.eye,b.eye);let direction=normalize(mix(normalize(a.target.map((v,i)=>v-a.eye[i])),normalize(b.target.map((v,i)=>v-b.eye[i]))));
         camera={eye,target:eye.map((v,i)=>v+direction[i]),up:normalize(mix(a.up,b.up))};
-        if(flight.path){const distance=s*flight.lengths.at(-1);let i=1;while(i<flight.lengths.length-1&&flight.lengths[i]<distance)i++;const fraction=(distance-flight.lengths[i-1])/Math.max(1e-9,flight.lengths[i]-flight.lengths[i-1]);camera.eye=flight.path[i-1].map((v,k)=>v+(flight.path[i][k]-v)*fraction);camera.target=camera.eye.map((v,k)=>v+direction[k]);}
+        if(flight.path){
+          const atDistance=value=>{
+            const distance=Math.max(0,Math.min(flight.lengths.at(-1),value));let i=1;
+            while(i<flight.lengths.length-1&&flight.lengths[i]<distance)i++;
+            const fraction=(distance-flight.lengths[i-1])/Math.max(1e-9,flight.lengths[i]-flight.lengths[i-1]);
+            return {point:flight.path[i-1].map((v,k)=>v+(flight.path[i][k]-v)*fraction),index:i};
+          };
+          const distance=s*flight.lengths.at(-1),current=atDistance(distance);camera.eye=current.point;
+          if(flight.coursePlayback){
+            const ahead=atDistance(Math.min(flight.lengths.at(-1),distance+.35)).point;
+            const tangent=ahead.map((value,index)=>index===1?0:value-camera.eye[index]);
+            if(Math.hypot(tangent[0],tangent[2])>.001)direction=normalize(tangent);
+            else{
+              const next=flight.path[Math.min(current.index,flight.path.length-1)];
+              direction=normalize(next.map((value,index)=>index===1?0:value-camera.eye[index]));
+            }
+          }
+          camera.target=camera.eye.map((value,index)=>value+direction[index]);
+        }
         if(t===1){camera=b;cancelFlight();controls.clear();mobileControls.reset();}
       }
       lastCamera=camera;M.lookAt(view,camera.eye,camera.target,camera.up);
@@ -676,7 +738,11 @@
       gl.uniform4fv(U.uGrassBounds,[...MuseumGeometry.point([492,480]),...MuseumGeometry.point([900,584])]);gl.uniform2fv(U.uGrassNotch,MuseumGeometry.point([552,496]));
       for(const f of model.floors){if(!f.renderGpu)continue;draw(f.renderGpu,identity,f.color,1,f.group==='floor',MuseumMaterials.classify(f));}
       if(controls.state.mode==='interior')draw(ceilingMesh,identity,[.9,.9,.88],1,false,5);
-      for(const p of model.parts){if(['glass','displayGlass'].includes(p.group))continue;draw(p.renderGpu,matrix(p),p.color,1,false,MuseumMaterials.classify(p));}
+      for(const p of model.parts){
+        if(['glass','displayGlass'].includes(p.group))continue;
+        const glowingPassage=courseDrawingMode&&coursePassageParts.has(p.id);
+        draw(p.renderGpu,matrix(p),glowingPassage?[.06,1,.16]:p.color,1,false,glowingPassage?9:MuseumMaterials.classify(p));
+      }
       // 얇은 유리판은 불투명 부재 뒤에, 카메라에서 먼 순서로 그린다.
       const distance=p=>p.position.reduce((s,v,i)=>s+(v-camera.eye[i])**2,0);
       drawFixtures();
@@ -697,7 +763,7 @@
         const at=MuseumGeometry.point(asset.at),anchor=[at[0],.06,at[1]];
         const clip=[0,1,2,3].map(i=>vp[i]*anchor[0]+vp[4+i]*anchor[1]+vp[8+i]*anchor[2]+vp[12+i]);
         const x=clip[0]/clip[3],y=clip[1]/clip[3];
-        marker.hidden=!controls.state.orthographic||controls.state.mode==='interior'||clip[3]<=0||Math.abs(x)>1||Math.abs(y)>1;
+        marker.hidden=courseDrawingMode||!controls.state.orthographic||controls.state.mode==='interior'||clip[3]<=0||Math.abs(x)>1||Math.abs(y)>1;
         marker.style.left=(x*.5+.5)*r.width+'px';marker.style.top=(-y*.5+.5)*r.height+'px';
       }
       for(const location of locationMarkers.values()){

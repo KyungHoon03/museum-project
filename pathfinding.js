@@ -1,6 +1,6 @@
 /* 충돌 검사를 사용하는 수평 A* 경로. 목적지는 임의 좌표를 그대로 유지한다. */
 window.MuseumPathfinding={find(from,to,collision){
- const step=.25,poly=MuseumLayout.floor.polygon.map(MuseumGeometry.point),inside=p=>{let yes=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a[1]>p[2])!==(b[1]>p[2])&&p[0]<(b[0]-a[0])*(p[2]-a[1])/(b[1]-a[1])+a[0])yes=!yes;}return yes;},dist=(a,b)=>Math.hypot(a[0]-b[0],a[2]-b[2]),clear=(a,b)=>inside(b)&&inside(a.map((v,i)=>(v+b[i])/2))&&collision.move(a,b).every((v,i)=>Math.abs(v-b[i])<.005);
+ const step=.25,inside=p=>collision.inside(p),dist=(a,b)=>Math.hypot(a[0]-b[0],a[2]-b[2]),clear=(a,b)=>collision.clear(a,b);
  if(collision.blocked(to)||!inside(to))return null;if(clear(from,to))return [from,to];
  const nodes=new Map(),open=[],closed=new Set(),key=(x,z)=>x+','+z,heur=p=>dist(p,to);
  const first={x:0,z:0,p:from,g:0,f:heur(from),parent:null};nodes.set('0,0',first);open.push(first);let end=null;

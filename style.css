@@ -117,6 +117,31 @@ canvas{touch-action:none}
 .course-panel li { margin-block: .45rem; }
 .course-panel li button { margin-inline-start: .4rem; }
 .course-panel p { margin-bottom: 0; }
+.course-add-start{width:100%;min-height:52px;margin:.55em 0;padding:.65em;border:1px solid #3d5948;border-radius:7px;background:#4c6b55;color:#fff;font-family:inherit;font-size:max(15px,1.05vw);font-weight:700;cursor:pointer}
+.course-drawing-controls{display:grid;gap:.45em;margin:.55em 0}
+.course-control{min-height:38px;padding:.45em;border:1px solid #9fb0a0;border-radius:6px;background:#fff;color:#405447;font-family:inherit;font-size:max(12px,.82vw);font-weight:650;cursor:pointer}
+.course-control-primary{border-color:#3d5948;background:#3d5948;color:#fff}
+.course-control-secondary:hover{border-color:#9c554d;background:#fff2ef;color:#873d35}
+.course-control:disabled{opacity:.45;cursor:default}
+.course-play-label{display:block;margin:.65em 0 .25em;font-size:max(12px,.82vw);font-weight:600}
+#course-play-select{width:100%;min-height:36px;margin-bottom:.45em;padding:.35em;border:1px solid #cbd5ca;border-radius:5px;background:#fff;color:#364339;font:inherit;font-size:max(12px,.82vw)}
+#course-play-select:disabled{opacity:.55}
+.course-drawing-overlay{position:absolute;inset:0;width:100%;height:100%;z-index:7;overflow:hidden;pointer-events:none}
+.course-drawing-overlay.active{pointer-events:all;cursor:crosshair}
+.course-drawing-overlay.active.panning{cursor:grabbing}
+.course-drawing-overlay polyline{fill:none;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.course-draft-line{stroke:#fff;stroke-width:2.5;stroke-opacity:.9}
+.course-draft-line-shadow{stroke:#355f45;stroke-width:5;stroke-opacity:.28}
+.course-final-line{stroke:#2f5f43;stroke-width:6}
+.course-added-line{stroke:#b44736;stroke-width:5;stroke-opacity:.85}
+.course-added-node{fill:#fff;stroke:#b44736;stroke-width:2.5;vector-effect:non-scaling-stroke}
+.course-route-handles{pointer-events:none}
+.course-route-handle{fill:#fff;stroke:#2879e3;stroke-width:3;vector-effect:non-scaling-stroke}
+.course-loading{position:absolute;inset:0;z-index:20;display:grid;place-items:center;background:#18251d35}
+.course-loading[hidden]{display:none}
+.course-loading-card{display:flex;align-items:center;gap:.7em;padding:.8em 1em;border:1px solid #d5ddd1;border-radius:8px;background:#fff;color:#34473a;font-size:14px;font-weight:650;box-shadow:0 6px 24px #17231c35}
+.course-loading-spinner{width:20px;height:20px;border:3px solid #d9e3d8;border-top-color:#3d7050;border-radius:50%;animation:course-spin .8s linear infinite}
+@keyframes course-spin{to{transform:rotate(360deg)}}
 /* 전시 자리: 3D 자리는 네모 점, 빈 자리는 점선. 교환 선택 상자. */
 .asset-location.asset-location-3d{border-radius:5px}
 .asset-location[data-room-index="8"]{background:#5b6b3a}

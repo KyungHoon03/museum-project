@@ -77,10 +77,11 @@ window.MuseumControls=function(canvas,options={}){
   event.preventDefault();
   zoomFromInput(direction*.15);
  });
- canvas.addEventListener('keydown',e=>{if(!pc()||e.ctrlKey||e.metaKey||e.altKey||!supported.has(e.code))return;e.preventDefault();if(e.code==='Home'){clear();options.onHome?.();return;}keys.add(e.code);options.onInput?.();});
+ canvas.addEventListener('keydown',e=>{if(!pc()||e.ctrlKey||e.metaKey||e.altKey||!supported.has(e.code))return;e.preventDefault();if(e.code==='Home'){if(document.documentElement.dataset.courseDrawingMode==='true')return;clear();options.onHome?.();return;}keys.add(e.code);options.onInput?.();});
  window.addEventListener('keydown',e=>{
   if(e.code!=='Space'||!pc()||e.ctrlKey||e.metaKey||e.altKey)return;
   if(e.target?.closest?.('button,summary,a[href],input,textarea,select,[contenteditable="true"],[role="textbox"]'))return;
+  if(document.documentElement.dataset.courseDrawingMode==='true'){e.preventDefault();return;}
   e.preventDefault();if(e.repeat)return;toggleMode();canvas.focus({preventScroll:true});
  },true);
  window.addEventListener('keyup',e=>keys.delete(e.code));
